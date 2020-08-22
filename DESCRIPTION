@@ -19,3 +19,7 @@ Imports:
   GenomeInfoDb,
   ggplot2,
   patchwork
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
