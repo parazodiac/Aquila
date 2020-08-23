@@ -12,14 +12,13 @@ Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.1
-Imports:
-  devtools,
-  Seurat,
-  EnsDb.Hsapiens.v86,
-  GenomeInfoDb,
-  ggplot2,
-  patchwork
-Suggests: 
+Suggests:
+    devtools,
+    Seurat (>= 3.2.0),
+    EnsDb.Hsapiens.v86,
+    GenomeInfoDb,
+    ggplot2,
+    patchwork,
     knitr,
     rmarkdown
 VignetteBuilder: knitr
