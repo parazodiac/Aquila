@@ -34,8 +34,8 @@ GetSignacObject <- function(mrna.h5.file, peaks.fragments.file) {
 #' @param object Path to the signac object
 #' @return Processed Signac object
 #' @export
-ProcessATAC <- function(object) {
-  DefaultAssay(object) <- "ATAC"
+ProcessATAC <- function(object, assay.name) {
+  DefaultAssay(object) <- assay.name
   object <- NucleosomeSignal(object)
   object <- TSSEnrichment(object)
 
@@ -95,6 +95,24 @@ TransferRnaPBMC <- function(object) {
   object
 }
 
+#' Create new Chromatin Assay from new peaks
+#'
+#' @param object Path to the signac object
+#' @param peaks.file Path to the new peaks file
+#' @param assay.name Name of the new assay
+#' @return new chromain assay Signac object
+#' @export
+AddAssayFromPeaks <- function(object, peaks.file, assay.name) {
+  gr <- NewPeaks(peaks.file)
+  counts <- FeatureMatrix(
+    fragments = Fragments(object),
+    features = gr,
+    cells = colnames(object)
+  )
+  object[[assay.name]] <-AssayFromCounts(pbmc, counts)
+  object
+}
+
 AssayFromCounts <- function(object, counts){
   CreateChromatinAssay(
     counts = counts,
@@ -130,4 +148,9 @@ NewPeaksSeparated <- function(macs.peak.folder) {
   unified <- reduce(x = unified)
   unified <- keepStandardChromosomes(unified, pruning.mode = "coarse")
   unified
+}
+
+#' @export
+GetCorrelationGamma <- function(atac.counts, rna.counts) {
+  timesTwo(c(1, 2))
 }
