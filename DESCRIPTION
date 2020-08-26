@@ -20,7 +20,8 @@ Suggests:
     ggplot2,
     patchwork,
     knitr,
+    princurve,
     rmarkdown
 VignetteBuilder: knitr
-Imports: Rcpp (>= 1.0.4)
-LinkingTo: Rcpp
+Imports: Rcpp (>= 1.0.4), RcppEigen
+LinkingTo: Rcpp, RcppEigen

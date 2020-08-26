@@ -1,3 +1,6 @@
+#' @useDynLib Circus
+NULL
+
 #' Create Signac Object
 #'
 #' This function loads the mRNA and peaks file as a Signac object.
@@ -151,6 +154,64 @@ NewPeaksSeparated <- function(macs.peak.folder) {
 }
 
 #' @export
-GetCorrelationGamma <- function(atac.counts, rna.counts) {
-  timesTwo(c(1, 2))
+GetCorrelationGamma <- function(peak.counts, gene.counts, pbmc) {
+  pranges <- StringToGRanges(rownames(peak.counts), sep = c("-", "-"))
+  pranges <- Extend(x = pranges, upstream = 100000, downstream = 100000)
+
+  overlaps <- data.frame(findOverlaps(pranges, pbmc@assays$macs.atac@annotation))
+  overlaps$queryHits <- rownames(peak.counts)[overlaps$queryHits]
+  overlaps$subjectHits <- annotation[overlaps$subjectHits]$gene_name
+  overlaps <- unique(overlaps)
+  overlaps <- overlaps[overlaps$subjectHits %in% rownames(gene.counts), ]
+
+  num.rows = nrow(overlaps)
+  corrs <- numeric(num.rows)
+  for (i in 1:num.rows) {
+    if (i %% 1000 == 0) {
+      cat("\r", i)
+    }
+
+    pname <- overlaps[i, "queryHits"]
+    gname <- overlaps[i, "subjectHits"]
+    arow <- peak.counts[pname, ]
+    rrow <- gene.counts[gname, ]
+    if (sum(arow) > 10 && sum(rrow) > 10) {
+      corrs[i] <- ks.test(arow, rrow)[[1]] #cor(arow, rrow, method = "spearman")
+    }
+  }
+
+  overlaps["corr"] <- corrs
+  overlaps
+}
+
+#' @export
+SubsetCounts <- function(chr.name, object) {
+  annotation <- pbmc@assays$macs.atac@annotation
+  keep.gnames <- unique(annotation[annotation@seqnames == "chr1"]$gene_name)
+  keep.gnames <- intersect(keep.gnames, rownames(pbmc@assays$RNA@counts))
+  keep.peaks <- grep("chr1-", rownames(pbmc@assays$macs.atac@counts))
+
+  atac.counts <- pbmc@assays$macs.atac@counts[keep.peaks, ]
+  rna.counts <- pbmc@assays$RNA@counts[keep.gnames, ]
+  list(atac.counts, rna.counts)
+}
+
+#' @export
+PrincipleTime <- function(cell.embeddings) {
+  rna.princurve <- principal_curve(cell.embeddings)
+  rna.pseudo.time <- rna.princurve$lambda
+  rna.pseudo.time <- rna.pseudo.time / max(rna.pseudo.time)
+  rna.pseudo.time
+}
+
+#' @export
+PlotATACnRNA <- function(atac, rna, pname, gname) {
+  df <- data.frame(cbind(atac[pname, ], rna[gname, ]))
+  pname <- gsub("-", "_", pname)
+  colnames(df) <- c(pname, gname)
+  df["num"] <- seq(dim(df)[1])
+
+  p1 <- ggplot(data=df, aes_string(x="num", y=pname)) + geom_point()  + geom_smooth(method="gam")
+  p2 <- ggplot(data=df, aes_string(x="num", y=gname)) + geom_point() + geom_smooth(method="gam")
+  p1 / p2
 }
