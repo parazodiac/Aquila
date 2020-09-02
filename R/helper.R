@@ -278,7 +278,7 @@ GetConnectedRegion <- function(overlaps, gname){
 }
 
 #' @export
-GetCellTypeGamma <- function(atac.counts, rna.counts, keep.cells, gname = "TCL1A") {
+GetCellTypeGamma <- function(atac.counts, rna.counts, keep.cells) {
   alpha <- as.matrix(atac.counts[, keep.cells])
   beta <- as.matrix(rna.counts[, keep.cells])
   overlaps <- GetCorrelationGamma(alpha, beta, pbmc, "ident")
