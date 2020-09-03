@@ -1,13 +1,13 @@
-LIBDIR = flash/target/release
-STATLIB = $(LIBDIR)/libflash.a
-PKG_LIBS = -L$(LIBDIR) -lflash -lresolv
+LIBDIR = circus/target/release
+STATLIB = $(LIBDIR)/libcircus.a
+PKG_LIBS = -L$(LIBDIR) -lcircus -lresolv
 
 all: clean
 
 $(SHLIB): $(STATLIB)
 
 $(STATLIB):
-	cargo build --release --manifest-path=flash/Cargo.toml
+	cargo build --release --manifest-path=circus/Cargo.toml
 
 clean:
-	rm -Rf $(SHLIB) $(STATLIB) $(OBJECTS) flash/target
+	rm -Rf $(SHLIB) $(STATLIB) $(OBJECTS) circus/target

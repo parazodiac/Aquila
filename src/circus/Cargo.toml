@@ -1,5 +1,5 @@
 [package]
-name = "flash"
+name = "circus"
 version = "0.1.0"
 authors = ["Avi Srivastava <asrivastava@cs.stonybrook.edu>"]
 edition = "2018"

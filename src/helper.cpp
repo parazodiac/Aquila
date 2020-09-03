@@ -5,7 +5,7 @@
 using namespace Rcpp;
 
 // Import C headers for rust API
-#include "flash/api.h"
+#include "circus/api.h"
 
 // [[Rcpp::export]]
 SEXP rustHello() {
