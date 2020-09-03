@@ -6,14 +6,13 @@
 
 using namespace Rcpp;
 
-// rustHello
-SEXP rustHello();
-RcppExport SEXP _Circus_rustHello() {
+// gibbsGamma
+void gibbsGamma();
+RcppExport SEXP _Circus_gibbsGamma() {
 BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(rustHello());
-    return rcpp_result_gen;
+    gibbsGamma();
+    return R_NilValue;
 END_RCPP
 }
 // correlationMatrix
@@ -30,7 +29,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_Circus_rustHello", (DL_FUNC) &_Circus_rustHello, 0},
+    {"_Circus_gibbsGamma", (DL_FUNC) &_Circus_gibbsGamma, 0},
     {"_Circus_correlationMatrix", (DL_FUNC) &_Circus_correlationMatrix, 2},
     {NULL, NULL, 0}
 };
