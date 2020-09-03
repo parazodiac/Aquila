@@ -5,7 +5,9 @@ library(Signac)
 pbmc <- readRDS(file = "/home/srivastavaa/avi/tim/peak_test/pbmc.Rds")
 
 # extract ATAC/RNA counts for all peaks/genes in chromosome 14
-counts <- SubsetCounts("chr14", pbmc)
+gname <- "CSGALNACT1"
+chr.name <- "chr8"
+counts <- SubsetCounts(chr.name, pbmc)
 atac.counts <- counts[[1]]
 rna.counts <- counts[[2]]
 dim(atac.counts)
@@ -31,10 +33,10 @@ overlaps <- GetTauOverlaps(peak.names = rownames(atac.counts),
 # I missed the unique in the line 35 resulting in
 # redundant peak names but the slides were on the
 # corrected counts, I forgot it's 68 not 140.
-gene.hits <- GetConnectedRegion(overlaps, "TCL1A")
+gene.hits <- GetConnectedRegion(overlaps, gname)
 peak.hits <- unique(overlaps[overlaps$genes %in% gene.hits, ]$peaks)
-paste(length(gene.hits), length(peak.hits))
-#"7 68"
+paste(length(peak.hits), length(gene.hits))
+#"68 7"
 
 # generate gammas
 gammas <- lapply(list(naive.b.cells, mem.b.cells), function(keep.cells){
@@ -59,15 +61,32 @@ rownames(df.genes) <- colnames(gamma.naive)
 df.genes <- df.genes[-dims[2], ]
 df.genes
 
+# Marginalizing over G to show DE peaks
+df.peaks <- data.frame(rowSums(gamma.naive[, -dims[2]]), rowSums(gamma.mem[, -dims[2]]))
+rownames(df.peaks) <- rownames(gamma.naive)
+df.peaks <- df.peaks[-dims[1], ]
+colnames(df.peaks) <- c("naive", "mem")
+df.peaks["diff"] <- df.peaks[, "mem"] - df.peaks[, "naive"]
+tail(df.peaks[order(abs(df.peaks$diff)), ], 20)
+
+#Magic test
+pname <- "chr8-19816678-19818513"
+df.naive <- gamma.naive[pname, -dims[2]]
+df.mem <- gamma.mem[pname, -dims[2]]
+df.naive <- df.naive[df.naive != 0]
+df.mem <- df.mem[df.mem != 0]
+df.naive
+df.mem
+
 # Signac Plot
 CoveragePlot(
   object = pbmc,
-  region = "chr14-95713613-95714401",
+  region = pname,
   links=FALSE,
-  extend.upstream = 20000,
-  extend.downstream = 20000,
+  extend.upstream = 10000,
+  extend.downstream = 10000,
   group.by = "predicted.id",
-  features = "TCL1A"
+  features = gname
 )
 
 ##############################

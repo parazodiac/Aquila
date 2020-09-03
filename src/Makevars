@@ -1,0 +1,13 @@
+LIBDIR = flash/target/release
+STATLIB = $(LIBDIR)/libflash.a
+PKG_LIBS = -L$(LIBDIR) -lflash -lresolv
+
+all: clean
+
+$(SHLIB): $(STATLIB)
+
+$(STATLIB):
+	cargo build --release --manifest-path=flash/Cargo.toml
+
+clean:
+	rm -Rf $(SHLIB) $(STATLIB) $(OBJECTS) flash/target

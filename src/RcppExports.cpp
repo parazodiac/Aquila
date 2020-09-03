@@ -6,6 +6,16 @@
 
 using namespace Rcpp;
 
+// rustHello
+SEXP rustHello();
+RcppExport SEXP _Circus_rustHello() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(rustHello());
+    return rcpp_result_gen;
+END_RCPP
+}
 // correlationMatrix
 Eigen::MatrixXd correlationMatrix(Eigen::SparseMatrix<double> atac, Eigen::SparseMatrix<double> rna);
 RcppExport SEXP _Circus_correlationMatrix(SEXP atacSEXP, SEXP rnaSEXP) {
@@ -20,6 +30,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_Circus_rustHello", (DL_FUNC) &_Circus_rustHello, 0},
     {"_Circus_correlationMatrix", (DL_FUNC) &_Circus_correlationMatrix, 2},
     {NULL, NULL, 0}
 };

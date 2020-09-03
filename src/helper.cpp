@@ -4,6 +4,14 @@
 // [[Rcpp::depends(RcppEigen)]]
 using namespace Rcpp;
 
+// Import C headers for rust API
+#include "flash/api.h"
+
+// [[Rcpp::export]]
+SEXP rustHello() {
+    return Rf_ScalarString(Rf_mkCharCE(string_from_rust(), CE_UTF8));
+}
+
 // taken from https://www.techiedelight.com/replace-each-element-corresponding-rank-array/
 // Function to replace each element of the array by its rank in the array
 void transform(std::vector<double> &vec) {
