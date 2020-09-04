@@ -38,6 +38,7 @@ peak.hits <- unique(overlaps[overlaps$genes %in% gene.hits, ]$peaks)
 paste(length(peak.hits), length(gene.hits))
 #"68 7"
 
+#keep.cells <- naive.b.cells
 # generate gammas
 gammas <- lapply(list(naive.b.cells, mem.b.cells), function(keep.cells){
   # extracting alpha,beta matrices for the relevant cell types.
