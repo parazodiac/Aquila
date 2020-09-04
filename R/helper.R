@@ -209,15 +209,6 @@ PrincipleTime <- function(cell.embeddings) {
   rna.pseudo.time
 }
 
-#' @export
-SubsetGamma <- function(object, keep.cells, atac.counts, rna.counts, ctype) {
-  pseudotime <- PrincipleTime(object@reductions$umap.rna@cell.embeddings[keep.cells, ])
-  cell.order <- names(pseudotime[order(pseudotime)])
-
-  d.atac <- as.matrix(atac.counts[, cell.order])
-  d.rna <- as.matrix(rna.counts[, cell.order])
-  GetCorrelationGamma(d.atac, d.rna, object, ctype)
-}
 
 #' @export
 SubsetCounts <- function(chr.name, object) {
@@ -229,6 +220,21 @@ SubsetCounts <- function(chr.name, object) {
   atac.counts <- pbmc@assays$macs.atac@counts[keep.peaks, ]
   rna.counts <- pbmc@assays$RNA@counts[keep.gnames, ]
   list(atac.counts, rna.counts)
+}
+
+#' @export
+GetTauOverlaps <- function(peak.names, gene.names, gene.ranges, tau=100000) {
+  pranges <- StringToGRanges(peak.names, sep = c("-", "-"))
+  pranges <- Extend(x = pranges, upstream = tau, downstream = tau)
+
+  overlaps <- data.frame(findOverlaps(pranges, gene.ranges))
+  overlaps$queryHits <- peak.names[overlaps$queryHits]
+  overlaps$subjectHits <- gene.ranges[overlaps$subjectHits]$gene_name
+
+  overlaps <- unique(overlaps)
+  overlaps <- overlaps[overlaps$subjectHits %in% gene.names, ]
+  colnames(overlaps) <- c("peaks", "genes")
+  return (overlaps)
 }
 
 #' @export
@@ -250,13 +256,15 @@ GetConnectedRegion <- function(overlaps, gname){
   num.ghits <- 1
   gchange <- TRUE
 
-  num.qhits <- 0
+  num.phits <- 0
   qchange <- TRUE
 
+  # recursively keep adding gene and peaks until
+  # neither of them add new element.
   while (gchange || qchange) {
-    qhits <- unique(overlaps[overlaps$subjectHits %in% ghits, ]$queryHits)
-    ghits <- unique(overlaps[overlaps$queryHits %in% qhits, ]$subjectHits)
-    new.num.qhits <- length(qhits)
+    phits <- unique(overlaps[overlaps$genes %in% ghits, ]$peaks)
+    ghits <- unique(overlaps[overlaps$peaks %in% phits, ]$genes)
+    new.num.phits <- length(phits)
     new.num.ghits <- length(ghits)
 
     if (new.num.ghits != num.ghits) {
@@ -266,8 +274,8 @@ GetConnectedRegion <- function(overlaps, gname){
       gchange = FALSE
     }
 
-    if (new.num.qhits != num.qhits) {
-      num.qhits <- new.num.qhits
+    if (new.num.phits != num.phits) {
+      num.phits <- new.num.phits
       qchange = TRUE
     } else {
       qchange = FALSE
@@ -278,12 +286,44 @@ GetConnectedRegion <- function(overlaps, gname){
 }
 
 #' @export
+GetConnectedRegions <- function(overlaps) {
+  regions <- list()
+  genes <- unique(overlaps$genes)
+  while(length(genes) > 0) {
+    start.gene <- genes[1]
+    gene.group <-GetConnectedRegion(overlaps, start.gene)
+    regions <- append(regions, list(gene.group))
+
+    genes <- setdiff(genes, gene.group)
+  }
+
+  regions
+}
+
+################################
+################################
+# Deprecated Below this
+################################
+################################
+
+#' @export
 GetCellTypeGamma <- function(atac.counts, rna.counts, keep.cells) {
   alpha <- as.matrix(atac.counts[, keep.cells])
   beta <- as.matrix(rna.counts[, keep.cells])
   overlaps <- GetCorrelationGamma(alpha, beta, pbmc, "ident")
   GibbsGamma(overlaps, gname, alpha, beta)
 }
+
+#' @export
+SubsetGamma <- function(object, keep.cells, atac.counts, rna.counts, ctype) {
+  pseudotime <- PrincipleTime(object@reductions$umap.rna@cell.embeddings[keep.cells, ])
+  cell.order <- names(pseudotime[order(pseudotime)])
+
+  d.atac <- as.matrix(atac.counts[, cell.order])
+  d.rna <- as.matrix(rna.counts[, cell.order])
+  GetCorrelationGamma(d.atac, d.rna, object, ctype)
+}
+
 
 #' @export
 GibbsGamma <- function(overlaps, gname, alpha, beta, max.it = 1000000) {

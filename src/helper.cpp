@@ -1,35 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #include <RcppEigen.h>
 #include <queue>
 #include <random>
@@ -43,7 +11,8 @@ uint32_t key_selector(std::pair<uint32_t, std::vector<uint32_t>> pair){
 
 // [[Rcpp::export]]
 Eigen::MatrixXd getGamma(Eigen::MatrixXd &alpha, Eigen::MatrixXd &beta,
-                         DataFrame &overlaps, size_t max_iteration ) {
+                         DataFrame &overlaps, size_t max_iteration,
+                         bool verbose) {
 
   std::unordered_map<uint32_t, std::vector<uint32_t>> peaks2genes;
   std::unordered_map<uint32_t, std::vector<uint32_t>> genes2peaks;
@@ -66,11 +35,13 @@ Eigen::MatrixXd getGamma(Eigen::MatrixXd &alpha, Eigen::MatrixXd &beta,
   Eigen::MatrixXd gamma = Eigen::MatrixXd::Zero(num_peaks, num_genes);
 
   // preprocessing overlaps
-  Rcout << "Found " << num_cells << " Cells\n"
-        << "Found " << num_peaks << " Peaks\n"
-        << "Found " << num_genes << " Genes\n"
-        << "Found " << overlaps.nrows() << " Overlapping Regions\n"
-        << std::endl << std::flush;
+  if (verbose) {
+    Rcout << "Found " << num_cells << " Cells\n"
+          << "Found " << num_peaks << " Peaks\n"
+          << "Found " << num_genes << " Genes\n"
+          << "Found " << overlaps.nrows() << " Overlapping Regions\n"
+          << std::endl << std::flush;
+  }
 
   std::random_device rd;
   std::mt19937 mt(rd());
@@ -84,7 +55,7 @@ Eigen::MatrixXd getGamma(Eigen::MatrixXd &alpha, Eigen::MatrixXd &beta,
                                                    sample_gene(mt));
 
   for(size_t it = 1; it <= max_iteration; it++) {
-    if (it % 100000 == 0) {
+    if (verbose && it % 100000 == 0) {
       Rcout << "\rDone iterations: "<< it << std::flush;
     }
 
@@ -162,6 +133,6 @@ Eigen::MatrixXd getGamma(Eigen::MatrixXd &alpha, Eigen::MatrixXd &beta,
     gamma(state.first, state.second) += 1;
   }
 
-  Rcout << std::endl << std::flush;
+  if (verbose) { Rcout << std::endl << std::flush; }
   return gamma;
 }

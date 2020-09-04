@@ -7,8 +7,8 @@
 using namespace Rcpp;
 
 // getGamma
-Eigen::MatrixXd getGamma(Eigen::MatrixXd& alpha, Eigen::MatrixXd& beta, DataFrame& overlaps, size_t max_iteration);
-RcppExport SEXP _Circus_getGamma(SEXP alphaSEXP, SEXP betaSEXP, SEXP overlapsSEXP, SEXP max_iterationSEXP) {
+Eigen::MatrixXd getGamma(Eigen::MatrixXd& alpha, Eigen::MatrixXd& beta, DataFrame& overlaps, size_t max_iteration, bool verbose);
+RcppExport SEXP _Circus_getGamma(SEXP alphaSEXP, SEXP betaSEXP, SEXP overlapsSEXP, SEXP max_iterationSEXP, SEXP verboseSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -16,13 +16,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Eigen::MatrixXd& >::type beta(betaSEXP);
     Rcpp::traits::input_parameter< DataFrame& >::type overlaps(overlapsSEXP);
     Rcpp::traits::input_parameter< size_t >::type max_iteration(max_iterationSEXP);
-    rcpp_result_gen = Rcpp::wrap(getGamma(alpha, beta, overlaps, max_iteration));
+    Rcpp::traits::input_parameter< bool >::type verbose(verboseSEXP);
+    rcpp_result_gen = Rcpp::wrap(getGamma(alpha, beta, overlaps, max_iteration, verbose));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_Circus_getGamma", (DL_FUNC) &_Circus_getGamma, 4},
+    {"_Circus_getGamma", (DL_FUNC) &_Circus_getGamma, 5},
     {NULL, NULL, 0}
 };
 
