@@ -7,15 +7,15 @@
 using namespace Rcpp;
 
 // getGamma
-NumericMatrix getGamma(NumericMatrix& alpha, NumericMatrix& beta, DataFrame& overlaps, Int32 max_iteration);
+Eigen::MatrixXd getGamma(Eigen::MatrixXd& alpha, Eigen::MatrixXd& beta, DataFrame& overlaps, size_t max_iteration);
 RcppExport SEXP _Circus_getGamma(SEXP alphaSEXP, SEXP betaSEXP, SEXP overlapsSEXP, SEXP max_iterationSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< NumericMatrix& >::type alpha(alphaSEXP);
-    Rcpp::traits::input_parameter< NumericMatrix& >::type beta(betaSEXP);
+    Rcpp::traits::input_parameter< Eigen::MatrixXd& >::type alpha(alphaSEXP);
+    Rcpp::traits::input_parameter< Eigen::MatrixXd& >::type beta(betaSEXP);
     Rcpp::traits::input_parameter< DataFrame& >::type overlaps(overlapsSEXP);
-    Rcpp::traits::input_parameter< Int32 >::type max_iteration(max_iterationSEXP);
+    Rcpp::traits::input_parameter< size_t >::type max_iteration(max_iterationSEXP);
     rcpp_result_gen = Rcpp::wrap(getGamma(alpha, beta, overlaps, max_iteration));
     return rcpp_result_gen;
 END_RCPP

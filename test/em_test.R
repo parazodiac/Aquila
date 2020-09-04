@@ -1,54 +1,257 @@
 library(Seurat)
 library(Signac)
-library(princurve)
+
+library(devtools)
 devtools::load_all()
 
-pbmc <- readRDS(file = "~/avi/tim/peak_test/pbmc.Rds")
-counts <- SubsetCounts("chr14", pbmc)
+# The file is on O5
+pbmc <- readRDS(file = "/home/srivastavaa/avi/tim/peak_test/pbmc.Rds")
 
+# extract ATAC/RNA counts for all peaks/genes in chromosome 14
+gname <- "TCL1A"
+chr.name <- "chr14"
+counts <- SubsetCounts(chr.name, pbmc)
 atac.counts <- counts[[1]]
 rna.counts <- counts[[2]]
 dim(atac.counts)
+# 4530 11412
 dim(rna.counts)
+# 621 11412
 
-mem.b.cells <- names(pbmc$predicted.id[pbmc$predicted.id  == "Memory B"])
+# extract cells with naive and memory B cell annotation
 naive.b.cells <- names(pbmc$predicted.id[pbmc$predicted.id  == "Naive B"])
-paste(length(mem.b.cells), length(naive.b.cells))
+mem.b.cells <- names(pbmc$predicted.id[pbmc$predicted.id  == "Memory B"])
+paste(length(naive.b.cells), length(mem.b.cells))
+# "434 516"
 
-######################################
-# Question 3
+# extract overlapping peaks and genes within tau bound
+# Note: This does not uses the counts just the annotations.
+overlaps <- GetTauOverlaps(peak.names = rownames(atac.counts),
+                           gene.names = rownames(rna.counts),
+                           gene.ranges = pbmc@assays$macs.atac@annotation,
+                           tau = 100000)
 
-gamma.naive <- GetCellTypeGamma(atac.counts, rna.counts, keep.cells = naive.b.cells)
-gamma.mem <- GetCellTypeGamma(atac.counts, rna.counts, keep.cells = mem.b.cells)
+# chose a gene name to extract all the connected gene
+# Note: The number of peak is 68 not 140
+# I missed the unique in the line 35 resulting in
+# redundant peak names but the slides were on the
+# corrected counts, I forgot it's 68 not 140.
+gene.hits <- GetConnectedRegion(overlaps, gname)
+peak.hits <- unique(overlaps[overlaps$genes %in% gene.hits, ]$peaks)
+paste(length(peak.hits), length(gene.hits))
+#"68 7"
 
-dim(gamma.naive)
-dims <- dim(gamma.naive)
-sum(gamma.naive[-dims[1], -dims[2]])
-sum(gamma.mem[-dims[1], -dims[2]])
+#keep.cells <- naive.b.cells
+# generate gammas
+gammas <- lapply(list(naive.b.cells, mem.b.cells), function(keep.cells){
+  # extracting alpha,beta matrices for the relevant cell types.
+  # and the peaks and genes within a query region
+  # Note: I had to densify matrices because it's very slow to query
+  # a sparse matrix
+  alpha <- as.matrix(atac.counts[peak.hits, keep.cells])
+  beta <- as.matrix(rna.counts[gene.hits, keep.cells])
 
-df.peaks <- data.frame(rowSums(gamma.naive[, -dims[2]]), rowSums(gamma.mem[, -dims[2]]))
-rownames(df.peaks) <- rownames(gamma.naive)
-df.peaks <- df.peaks[-dims[1], ]
-tail(df.peaks)
+  genes <- seq(length(gene.hits))
+  names(genes) <- gene.hits
 
-df.genes <- data.frame(colSums(gamma.naive[-dims[1], ]), colSums(gamma.mem[-dims[1], ]))
+  peaks <- seq(length(peak.hits))
+  names(peaks) <- peak.hits
+
+  roi.overlaps <- overlaps[overlaps$genes %in% gene.hits, ]
+  #gamma <- GibbsGamma(roi.overlaps, alpha, beta, 100000)
+  roi.overlaps$genes <- genes[roi.overlaps$genes]
+  roi.overlaps$peaks <- peaks[roi.overlaps$peaks]
+
+  # reducing the max.it to 100k, 1M can be slow
+  gamma <- getGamma(alpha, beta, roi.overlaps, 100000)
+  rownames(gamma) <- names(peaks)
+  colnames(gamma) <- names(genes)
+
+  gamma
+})
+
+gamma.naive <- gammas[[1]]
+gamma.mem <- gammas[[2]]
+
+# Marginalizing over P to show DE genes
+df.genes <- data.frame(colSums(gamma.naive), colSums(gamma.mem))
 rownames(df.genes) <- colnames(gamma.naive)
-df.genes <- df.genes[-dims[2], ]
 df.genes
 
-pname <- "chr14-95326969-95328278"
-df.naive <- gamma.naive[pname, -dims[2]]
-df.mem <- gamma.mem[pname, -dims[2]]
+# Marginalizing over G to show DE peaks
+df.peaks <- data.frame(rowSums(gamma.naive), rowSums(gamma.mem))
+rownames(df.peaks) <- rownames(gamma.naive)
+colnames(df.peaks) <- c("naive", "mem")
+df.peaks["diff"] <- df.peaks[, "mem"] - df.peaks[, "naive"]
+tail(df.peaks[order(abs(df.peaks$diff)), ], 20)
+
+#Magic test
+pname <- "chr14-95725698-95726456"
+df.naive <- gamma.naive[pname, ]
+df.mem <- gamma.mem[pname, ]
 df.naive <- df.naive[df.naive != 0]
 df.mem <- df.mem[df.mem != 0]
 df.naive
 df.mem
 
-df <- data.frame(rowSums(gamma.naive[, -dims[2]]), rowSums(gamma.mem[, -dims[2]]))
-colnames(df) <- c("naive", "mem")
-df["diff"] <- df[, "mem"] - df[, "naive"]
-df["diff"] <- df["diff"] / (df[, "mem"] + df[, "naive"])
-df[order(df$diff), ]
+# gene test
+df.mem <- gamma.mem[, gname]
+df.naive <- gamma.naive[, gname]
+df.naive <- df.naive[df.naive != 0]
+df.mem <- df.mem[df.mem != 0]
+df.naive
+df.mem
+
+
+# Signac Plot
+CoveragePlot(
+  object = pbmc,
+  region = pname,
+  links=FALSE,
+  extend.upstream = 10000,
+  extend.downstream = 10000,
+  group.by = "predicted.id",
+  features = gname
+)
+
+##############################
+##############################
+##### Helper Functions #######
+##### Load them Before running
+##### the above code.
+###############################
+##############################
+
+SubsetCounts <- function(chr.name, object) {
+  annotation <- pbmc@assays$macs.atac@annotation
+  keep.gnames <- unique(annotation[annotation@seqnames == chr.name]$gene_name)
+  keep.gnames <- intersect(keep.gnames, rownames(pbmc@assays$RNA@counts))
+  keep.peaks <- grep(paste0(chr.name, "-"), rownames(pbmc@assays$macs.atac@counts))
+
+  atac.counts <- pbmc@assays$macs.atac@counts[keep.peaks, ]
+  rna.counts <- pbmc@assays$RNA@counts[keep.gnames, ]
+  list(atac.counts, rna.counts)
+}
+
+GetTauOverlaps <- function(peak.names, gene.names, gene.ranges, tau=100000) {
+  pranges <- StringToGRanges(peak.names, sep = c("-", "-"))
+  pranges <- Extend(x = pranges, upstream = tau, downstream = tau)
+
+  overlaps <- data.frame(findOverlaps(pranges, gene.ranges))
+  overlaps$queryHits <- peak.names[overlaps$queryHits]
+  overlaps$subjectHits <- gene.ranges[overlaps$subjectHits]$gene_name
+
+  overlaps <- unique(overlaps)
+  overlaps <- overlaps[overlaps$subjectHits %in% gene.names, ]
+  colnames(overlaps) <- c("peaks", "genes")
+  return (overlaps)
+}
+
+GetConnectedRegion <- function(overlaps, gname){
+  ghits <- c(gname)
+  num.ghits <- 1
+  gchange <- TRUE
+
+  num.phits <- 0
+  qchange <- TRUE
+
+  # recursively keep adding gene and peaks until
+  # neither of them add new element.
+  while (gchange || qchange) {
+    phits <- unique(overlaps[overlaps$genes %in% ghits, ]$peaks)
+    ghits <- unique(overlaps[overlaps$peaks %in% phits, ]$genes)
+    new.num.phits <- length(phits)
+    new.num.ghits <- length(ghits)
+
+    if (new.num.ghits != num.ghits) {
+      num.ghits <- new.num.ghits
+      gchange = TRUE
+    } else {
+      gchange = FALSE
+    }
+
+    if (new.num.phits != num.phits) {
+      num.phits <- new.num.phits
+      qchange = TRUE
+    } else {
+      qchange = FALSE
+    }
+  }
+
+  return(ghits)
+}
+
+GibbsGamma <- function(overlaps, alpha, beta, max.it = 1000000) {
+  phits <- c(rownames(alpha), "pnoise")
+  ghits <- c(rownames(beta), "gnoise")
+
+  gamma <- matrix(0, nrow = length(phits), ncol = length(ghits))
+  rownames(gamma) <-phits
+  colnames(gamma) <- ghits
+  cat("Generating gamma matrix of dimension", dim(gamma))
+
+  num.cells <- dim(alpha)[2]
+  num.genes <- length(ghits)
+  num.peaks <- length(phits)
+
+  it <- 0
+  start = c(sample(1:(num.peaks-1), size = 1), sample(1:(num.genes-1), size = 1))
+  while (it < max.it) { # One Gibbs iteration
+    it <- it + 1
+    if (it %% 100000 == 0) {
+      cat("\r", it)
+    }
+
+    # first chose a cell
+    cell.id <- sample(1:num.cells, size = 1)
+
+    # next for a chosen cell and defined gene chose a peak
+    gene.name <- ghits[start[2]]
+    if (gene.name == "gnoise") {
+      opeaks <- phits[-num.peaks]
+    } else {
+      opeaks <- overlaps[overlaps$genes == gene.name, ]$peaks
+    }
+    pdist <- alpha[opeaks, cell.id]
+    pdist <- pdist[pdist != 0]
+    pdist <- cumsum(pdist / sum(pdist))
+    if (length(pdist) == 0) {
+      # if there is nowhere to move assign noisy peak
+      start[1] <- num.peaks
+    } else {
+      random.num <- runif(1, min = 0, max = 1)
+      peak.name <- names(pdist)[Position(function(x) x > random.num, pdist)]
+      start[1] <- Position(function(x) x == peak.name, phits)
+    }
+
+    # next for a chosen cell and defined peak chose a gene
+    peak.name <- phits[start[1]]
+    if (peak.name == "pnoise") {
+      ogenes <- ghits[-num.genes]
+    } else {
+      ogenes <- overlaps[overlaps$peaks == peak.name, ]$genes
+    }
+    gdist <- beta[ogenes, cell.id]
+    names(gdist) <- ogenes
+
+    gdist <- gdist[gdist != 0]
+    gdist <- cumsum(gdist / sum(gdist))
+    if (length(gdist) == 0) {
+      # if there is nowhere to move assign noisy gene
+      start[2] <- num.genes
+    } else {
+      random.num <- runif(1, min = 0, max = 1)
+      gene.name <- names(gdist)[Position(function(x) x > random.num, gdist)]
+      start[2] <- Position(function(x) x == gene.name, ghits)
+    }
+
+    # Increment the count of the new destination state.
+    gamma[start[1], start[2]] <-  gamma[start[1], start[2]] + 1
+  }
+
+  return (gamma)
+}
+
 
 ######################################
 # Question 2
