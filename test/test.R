@@ -51,15 +51,13 @@ CoveragePlot(
 )
 
 ########################
+#%%%%%%%% Pseudotime
+########################
+
 # August 24, 2020
 #saveRDS(object = pbmc, file = "~/avi/tim/peak_test/pbmc.Rds")
 pbmc <- readRDS(file = "~/avi/tim/peak_test/pbmc.Rds")
 pbmc
-
-#saveRDS(object = atac.counts, file = "~/avi/tim/peak_test/atac.Rds")
-#saveRDS(object = rna.counts, file = "~/avi/tim/peak_test/rna.Rds")
-#atac.counts <- readRDS(file = "~/avi/tim/peak_test/atac.Rds")
-#rna.counts <- readRDS(file = "~/avi/tim/peak_test/rna.Rds")
 
 ## Validations
 #test <- CreateSeuratObject(rna.counts[, combined.cells])
@@ -76,21 +74,14 @@ pbmc
 #DimPlot(test, group.by = "pseudotime")
 #DimPlot(test, group.by = "predicted.id", label = T)
 
-# filtering things for chromosome 1
-gname <- "TCL1A"
-counts <- SubsetCounts("chr14", pbmc)
 
-gname <- "OSBPL10"
-counts <- SubsetCounts("chr3", pbmc)
+gname <- "TCL1A"#"chr14"
+gname <- "OSBPL10"#"chr3"
+gname <- "EEF1A1"#"chr6"
 
-gname <- "EEF1A1"
-counts <- SubsetCounts("chr6", pbmc)
-
-atac.counts <- counts[[1]]
-rna.counts <- counts[[2]]
-dim(atac.counts)
-dim(rna.counts)
-############################
+########################
+#%%%%%%%% Find Marker
+########################
 
 mem.b.cells <- names(pbmc$predicted.id[pbmc$predicted.id  == "Memory B"])
 naive.b.cells <- names(pbmc$predicted.id[pbmc$predicted.id  == "Naive B"])
@@ -102,43 +93,30 @@ markers <- FindMarkers(pbmc, assay = "SCT", ident.1 = mem.b.cells, ident.2 = nai
 head(markers, 20)
 
 ########################
-
-combined.cells <- c(mem.b.cells, naive.b.cells)
-length(combined.cells)
-
-devtools::load_all()
-modes <- list("dot", "dot_depth", "ks", "spearman")
-gammas.test <- lapply(modes, function(use.mode) {
-  print(use.mode)
-  gammas <- lapply(list(combined.cells, mem.b.cells, naive.b.cells), function(keep.cells) {
-    gamma <- SubsetGamma(pbmc, keep.cells, atac.counts, rna.counts, use.mode)
-    print(dim(gamma))
-    gamma[gamma$subjectHits == gname, ]
-  })
-  list(use.mode, gammas)
-})
-
-idx <- 2
-mode <- gammas.test[[idx]][[1]]
-gammas <-gammas.test[[idx]][[2]]
-print(mode)
-
-gammas[[1]]$type <- "combined"
-gammas[[2]]$type <- "memory"
-gammas[[3]]$type <- "naive"
-
-ggplot(rbind(gammas[[1]], gammas[[2]], gammas[[3]]),
-       aes(corr, fill=type)) + geom_density(alpha = 0.2) +
-  ggtitle(paste(mode, gname, ks.test(gammas[[2]]$corr, gammas[[3]]$corr)[[1]]))
-
+#%%%%%%%% ATAC/ RNA plot
 ########################
-annotation[annotation$gene_name == "EEF1A1", ]
-gamma[gamma$corr == max(gamma$corr), ]
+
 library(ggplot2)
 gname <- "TCL1A"
 pname <- ""
 PlotATACnRNA(atac.counts, rna.counts, pname, gname, naive.b.cells)
 PlotATACnRNA(atac.counts, rna.counts, pname, gname, mem.b.cells)
+
+######################################
+######################################
+#%%%%%%%% Motif function
+######################################
+######################################
+library(TFBSTools)
+library(JASPAR2018)
+library(motifmatchr)
+library(BSgenome.Hsapiens.UCSC.hg38)
+features = StringToGRanges("chr14-95713613-95714401", sep = c("-", "-"))
+pfm <- getMatrixSet(
+  x = JASPAR2018,
+  opts = list(species = 9606, all_versions = FALSE)
+)
+matched.motifs <- matchMotifs(pfm, features, genome = BSgenome.Hsapiens.UCSC.hg38)
 
 
 

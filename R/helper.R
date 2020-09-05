@@ -154,51 +154,16 @@ NewPeaksSeparated <- function(macs.peak.folder) {
 }
 
 #' @export
-GetCorrelationGamma <- function(peak.counts, gene.counts, pbmc, ctype) {
-  pranges <- StringToGRanges(rownames(peak.counts), sep = c("-", "-"))
-  pranges <- Extend(x = pranges, upstream = 100000, downstream = 100000)
+PlotATACnRNA <- function(atac, rna, pname, gname, cells) {
+  df <- data.frame(cbind(atac[pname, ], rna[gname, ]))
+  pname <- gsub("-", "_", pname)
+  colnames(df) <- c(pname, gname)
+  df["num"] <- seq(dim(df)[1])
+  df <- df[cells, ]
 
-  annotation <- pbmc@assays$macs.atac@annotation
-  overlaps <- data.frame(findOverlaps(pranges, annotation))
-  overlaps$queryHits <- rownames(peak.counts)[overlaps$queryHits]
-  overlaps$subjectHits <- annotation[overlaps$subjectHits]$gene_name
-  overlaps <- unique(overlaps)
-  overlaps <- overlaps[overlaps$subjectHits %in% rownames(gene.counts), ]
-
-  if (ctype == "ident") {
-    return (overlaps)
-  }
-
-  num.rows = nrow(overlaps)
-  corrs <- numeric(num.rows)
-  for (i in 1:num.rows) {
-    if (i %% 1000 == 0) {
-      cat("\r", i)
-    }
-
-    pname <- overlaps[i, "queryHits"]
-    gname <- overlaps[i, "subjectHits"]
-    arow <- peak.counts[pname, ]
-    rrow <- gene.counts[gname, ]
-    if (sum(arow) > 10 && sum(rrow) > 10) {
-      if (ctype == "dot") {
-        corrs[i] <- sum(arow * rrow)
-      } else if (ctype == "dot_depth") {
-        corrs[i] <- sum((arow / sum(arow)) * (rrow / sum(rrow)))
-      } else if (ctype == "ks") {
-        corrs[i] <- ks.test(arow, rrow)[[1]]
-      } else if (ctype == "spearman") {
-        corrs[i] <- cor(arow, rrow, method = "spearman")
-      } else {
-        print("ERROR")
-        return (list())
-      }
-    }
-  }
-
-  overlaps["corr"] <- corrs / sum(abs(corrs))
-  overlaps <- overlaps[overlaps$corr != 0, ]
-  overlaps
+  p1 <- ggplot(data=df, aes_string(x="num", y=pname)) + geom_point()  + geom_smooth(method="gam")
+  p2 <- ggplot(data=df, aes_string(x="num", y=gname)) + geom_point() + geom_smooth(method="gam")
+  p1 / p2
 }
 
 #' @export
@@ -211,15 +176,12 @@ PrincipleTime <- function(cell.embeddings) {
 
 
 #' @export
-SubsetCounts <- function(chr.name, object) {
-  annotation <- pbmc@assays$macs.atac@annotation
+SubsetNames <- function(object, annotation, chr.name) {
   keep.gnames <- unique(annotation[annotation@seqnames == chr.name]$gene_name)
-  keep.gnames <- intersect(keep.gnames, rownames(pbmc@assays$RNA@counts))
-  keep.peaks <- grep(paste0(chr.name, "-"), rownames(pbmc@assays$macs.atac@counts))
+  keep.gnames <- intersect(keep.gnames, rownames(object@assays$RNA@counts))
+  keep.peaks <- grep(paste0(chr.name, "-"), rownames(object@assays$macs.atac@counts))
 
-  atac.counts <- pbmc@assays$macs.atac@counts[keep.peaks, ]
-  rna.counts <- pbmc@assays$RNA@counts[keep.gnames, ]
-  list(atac.counts, rna.counts)
+  list(keep.peaks, keep.gnames)
 }
 
 #' @export
@@ -235,19 +197,6 @@ GetTauOverlaps <- function(peak.names, gene.names, gene.ranges, tau=100000) {
   overlaps <- overlaps[overlaps$subjectHits %in% gene.names, ]
   colnames(overlaps) <- c("peaks", "genes")
   return (overlaps)
-}
-
-#' @export
-PlotATACnRNA <- function(atac, rna, pname, gname, cells) {
-  df <- data.frame(cbind(atac[pname, ], rna[gname, ]))
-  pname <- gsub("-", "_", pname)
-  colnames(df) <- c(pname, gname)
-  df["num"] <- seq(dim(df)[1])
-  df <- df[cells, ]
-
-  p1 <- ggplot(data=df, aes_string(x="num", y=pname)) + geom_point()  + geom_smooth(method="gam")
-  p2 <- ggplot(data=df, aes_string(x="num", y=gname)) + geom_point() + geom_smooth(method="gam")
-  p1 / p2
 }
 
 #' @export
@@ -286,7 +235,7 @@ GetConnectedRegion <- function(overlaps, gname){
 }
 
 #' @export
-GetConnectedRegions <- function(overlaps) {
+GetConnectedGenes <- function(overlaps) {
   regions <- list()
   genes <- unique(overlaps$genes)
   while(length(genes) > 0) {
@@ -300,104 +249,61 @@ GetConnectedRegions <- function(overlaps) {
   regions
 }
 
-################################
-################################
-# Deprecated Below this
-################################
-################################
-
 #' @export
-GetCellTypeGamma <- function(atac.counts, rna.counts, keep.cells) {
-  alpha <- as.matrix(atac.counts[, keep.cells])
-  beta <- as.matrix(rna.counts[, keep.cells])
-  overlaps <- GetCorrelationGamma(alpha, beta, pbmc, "ident")
-  GibbsGamma(overlaps, gname, alpha, beta)
-}
+GenerateGamma <- function(signac.object, chr.name, keep.cells,
+                          atac.assay = "macs.atac", rna.assay = "RNA",
+                          tau = 100000, num.samples = 1000000) {
+  annotations <- pbmc[[atac.assay]]@annotation
+  keep.names <- SubsetNames(signac.object, annotations, chr.name)
+  keep.peaks <- keep.names[[1]]
+  keep.genes <- keep.names[[2]]
 
-#' @export
-SubsetGamma <- function(object, keep.cells, atac.counts, rna.counts, ctype) {
-  pseudotime <- PrincipleTime(object@reductions$umap.rna@cell.embeddings[keep.cells, ])
-  cell.order <- names(pseudotime[order(pseudotime)])
+  atac.counts <- pbmc[[atac.assay]]@counts[keep.peaks, ]
+  rna.counts <- pbmc[[rna.assay]]@counts[keep.genes, ]
 
-  d.atac <- as.matrix(atac.counts[, cell.order])
-  d.rna <- as.matrix(rna.counts[, cell.order])
-  GetCorrelationGamma(d.atac, d.rna, object, ctype)
-}
+  print(paste0("Found ", length(keep.peaks), " peaks and ",
+               length(keep.genes), " genes."))
+  print("Finding gene overlaps with peaks")
+  # extract overlapping peaks and genes within tau bound
+  overlaps <- GetTauOverlaps(peak.names = rownames(atac.counts),
+                             gene.names = rownames(rna.counts),
+                             gene.ranges = annotations,
+                             tau)
 
+  print(paste0("Found ", dim(overlaps)[[1]], " overlaps."))
+  print("Finding connected gene groups")
+  # group genes which are overlapping into regions
+  gene.groups <- GetConnectedGenes(overlaps)
 
-#' @export
-GibbsGamma <- function(overlaps, gname, alpha, beta, max.it = 1000000) {
-  ghits <- GetConnectedRegion(overlaps, gname)
-  phits <- unique(overlaps[overlaps$subjectHits %in% ghits, ]$queryHits)
-
-  alpha <- alpha[phits, ]
-  beta <- beta[ghits, ]
-
-  phits <- c(phits, "pnoise")
-  ghits <- c(ghits, "gnoise")
-  colnames(overlaps) <- c("peaks", "genes")
-
-  gamma <- matrix(0, nrow = length(phits), ncol = length(ghits))
-  rownames(gamma) <-phits
-  colnames(gamma) <- ghits
-  dim(gamma)
-  sum(gamma)
-
-  num.cells <- dim(alpha)[2]
-  num.genes <- length(ghits)
-  num.peaks <- length(phits)
-
-  it <- 0
-  start = c(sample(1:(num.peaks-1), size = 1), sample(1:(num.genes-1), size = 1))
-  while (it < max.it) { # One Gibbs iteration
-    it <- it + 1
-    if (it %% 100000 == 0) {
-      cat("\r", it)
+  print(paste0("Found ", length(gene.groups), " gene groups."))
+  print("Generating gammas")
+  # loop over gene groups and generate a gamma matrix
+  # for each group
+  gammas <- lapply(gene.groups, function(gene.hits){
+    peak.hits <- unique(overlaps[overlaps$genes %in% gene.hits, ]$peaks)
+    if (length(gene.hits) == 1 || length(peak.hits) == 1) {
+      return (list())
     }
 
-    # first chose a cell
-    cell.id <- sample(1:num.cells, size = 1)
+    alpha <- as.matrix(atac.counts[peak.hits, keep.cells])
+    beta <- as.matrix(rna.counts[gene.hits, keep.cells])
 
-    # next for a chosen cell and defined gene chose a peak
-    gene.name <- ghits[start[2]]
-    if (gene.name == "gnoise") {
-      opeaks <- phits[-num.peaks]
-    } else {
-      opeaks <- overlaps[overlaps$genes == gene.name, ]$peaks
-    }
-    pdist <- alpha[opeaks, cell.id]
-    pdist <- pdist[pdist != 0]
-    pdist <- cumsum(pdist / sum(pdist))
-    if (length(pdist) == 0) {
-      start[1] <- num.peaks
-    } else {
-      random.num <- runif(1, min = 0, max = 1)
-      peak.name <- names(pdist)[Position(function(x) x > random.num, pdist)]
-      start[1] <- Position(function(x) x == peak.name, phits)
-    }
+    genes <- seq(length(gene.hits))
+    names(genes) <- gene.hits
 
-    # next for a chosen cell and defined peak chose a gene
-    peak.name <- phits[start[1]]
-    if (peak.name == "pnoise") {
-      ogenes <- ghits[-num.genes]
-    } else {
-      ogenes <- overlaps[overlaps$peaks == peak.name, ]$genes
-    }
-    gdist <- beta[ogenes, cell.id]
-    names(gdist) <- ogenes
+    peaks <- seq(length(peak.hits))
+    names(peaks) <- peak.hits
 
-    gdist <- gdist[gdist != 0]
-    gdist <- cumsum(gdist / sum(gdist))
-    if (length(gdist) == 0) {
-      start[2] <- num.genes
-    } else {
-      random.num <- runif(1, min = 0, max = 1)
-      gene.name <- names(gdist)[Position(function(x) x > random.num, gdist)]
-      start[2] <- Position(function(x) x == gene.name, ghits)
-    }
+    group.overlaps <- overlaps[overlaps$genes %in% gene.hits, ]
+    group.overlaps$genes <- genes[group.overlaps$genes]
+    group.overlaps$peaks <- peaks[group.overlaps$peaks]
 
-    gamma[start[1], start[2]] <-  gamma[start[1], start[2]] + 1
-  }
+    gamma <- getGamma(alpha, beta, group.overlaps, num.samples, FALSE)
+    rownames(gamma) <- names(peaks)
+    colnames(gamma) <- names(genes)
 
-  return (gamma)
+    gamma
+  })
+
+  gammas
 }
