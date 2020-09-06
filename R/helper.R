@@ -167,24 +167,6 @@ PlotATACnRNA <- function(atac, rna, pname, gname, cells) {
 }
 
 #' @export
-PrincipleTime <- function(cell.embeddings) {
-  rna.princurve <- principal_curve(cell.embeddings)
-  rna.pseudo.time <- rna.princurve$lambda
-  rna.pseudo.time <- rna.pseudo.time / max(rna.pseudo.time)
-  rna.pseudo.time
-}
-
-
-#' @export
-SubsetNames <- function(object, annotation, chr.name) {
-  keep.gnames <- unique(annotation[annotation@seqnames == chr.name]$gene_name)
-  keep.gnames <- intersect(keep.gnames, rownames(object@assays$RNA@counts))
-  keep.peaks <- grep(paste0(chr.name, "-"), rownames(object@assays$macs.atac@counts))
-
-  list(keep.peaks, keep.gnames)
-}
-
-#' @export
 GetTauOverlaps <- function(peak.names, gene.names, gene.ranges, tau=100000) {
   pranges <- StringToGRanges(peak.names, sep = c("-", "-"))
   pranges <- Extend(x = pranges, upstream = tau, downstream = tau)
@@ -235,9 +217,9 @@ GetConnectedRegion <- function(overlaps, gname){
 }
 
 #' @export
-GetConnectedGenes <- function(overlaps) {
+GetConnectedGenes <- function(overlaps, gene.name = NULL) {
   regions <- list()
-  genes <- unique(overlaps$genes)
+  genes <- if(is.null(gene.name)) unique(overlaps$genes) else gene.name
   while(length(genes) > 0) {
     start.gene <- genes[1]
     gene.group <-GetConnectedRegion(overlaps, start.gene)
@@ -250,33 +232,54 @@ GetConnectedGenes <- function(overlaps) {
 }
 
 #' @export
+DiffPlot <- function(gammas.1, gammas.2, gname) {
+  idx <- which(unlist(lapply(gammas.1, function(gamma) { gname %in% colnames(gamma) })))
+  diff <- gammas.1[[idx]] - gammas.2[[idx]]
+  hm.df <- setNames(melt(diff), c('peaks', 'genes', 'diffs'))
+  ggplot(hm.df, aes(genes, peaks)) +
+    geom_tile(aes(fill=diffs), colour="white") +
+    scale_fill_gradient(low="red", high="green")
+}
+
+#' @export
 GenerateGamma <- function(signac.object, chr.name, keep.cells,
                           atac.assay = "macs.atac", rna.assay = "RNA",
-                          tau = 100000, num.samples = 1000000) {
-  annotations <- pbmc[[atac.assay]]@annotation
-  keep.names <- SubsetNames(signac.object, annotations, chr.name)
-  keep.peaks <- keep.names[[1]]
-  keep.genes <- keep.names[[2]]
+                          tau = 100000, num.samples = 1000000,
+                          gene.name = NULL, overlaps = NULL,
+                          verbose = TRUE) {
+  annotations <- signac.object[[atac.assay]]@annotation
 
-  atac.counts <- pbmc[[atac.assay]]@counts[keep.peaks, ]
-  rna.counts <- pbmc[[rna.assay]]@counts[keep.genes, ]
+  keep.peaks <- grep(paste0(chr.name, "-"), rownames(signac.object[[atac.assay]]))
+  keep.genes <- unique(annotations[annotations@seqnames == chr.name]$gene_name)
+  keep.genes <- intersect(keep.genes, rownames(signac.object[[rna.assay]]))
 
-  print(paste0("Found ", length(keep.peaks), " peaks and ",
-               length(keep.genes), " genes."))
-  print("Finding gene overlaps with peaks")
+  atac.counts <- signac.object[[atac.assay]]@counts[keep.peaks, ]
+  rna.counts <- signac.object[[rna.assay]]@counts[keep.genes, ]
+
+  if (verbose) {
+    print(paste0("Found ", length(keep.peaks), " peaks and ",
+                 length(keep.genes), " genes."))
+    print("Finding gene overlaps with peaks")
+  }
   # extract overlapping peaks and genes within tau bound
-  overlaps <- GetTauOverlaps(peak.names = rownames(atac.counts),
-                             gene.names = rownames(rna.counts),
-                             gene.ranges = annotations,
-                             tau)
+  if (is.null(overlaps)) {
+    overlaps <- GetTauOverlaps(peak.names = rownames(atac.counts),
+                               gene.names = rownames(rna.counts),
+                               gene.ranges = annotations,
+                               tau)
+  }
 
-  print(paste0("Found ", dim(overlaps)[[1]], " overlaps."))
-  print("Finding connected gene groups")
+  if (verbose) {
+    print(paste0("Found ", dim(overlaps)[[1]], " overlaps."))
+    print("Finding connected gene groups")
+  }
   # group genes which are overlapping into regions
-  gene.groups <- GetConnectedGenes(overlaps)
+  gene.groups <- GetConnectedGenes(overlaps, gene.name)
 
-  print(paste0("Found ", length(gene.groups), " gene groups."))
-  print("Generating gammas")
+  if (verbose) {
+    print(paste0("Found ", length(gene.groups), " gene groups."))
+    print("Generating gammas")
+  }
   # loop over gene groups and generate a gamma matrix
   # for each group
   gammas <- lapply(gene.groups, function(gene.hits){
@@ -302,8 +305,62 @@ GenerateGamma <- function(signac.object, chr.name, keep.cells,
     rownames(gamma) <- names(peaks)
     colnames(gamma) <- names(genes)
 
-    gamma
+    gamma[, ] / num.samples
   })
 
   gammas
+}
+
+###########################
+# pseudotime
+###########################
+
+#' @export
+PrincipleTime <- function(cell.embeddings) {
+  rna.princurve <- principal_curve(cell.embeddings)
+  rna.pseudo.time <- rna.princurve$lambda
+  rna.pseudo.time <- rna.pseudo.time / max(rna.pseudo.time)
+  rna.pseudo.time
+}
+
+#' @export
+GetSlingshotPseudotime <- function(counts) {
+  # https://bioconductor.org/packages/release/bioc/vignettes/slingshot/inst/doc/vignette.html
+  sim <- SingleCellExperiment(assays = List(counts = counts))
+  geneFilter <- apply(assays(sim)$counts,1,function(x){
+    sum(x >= 3) >= 10
+  })
+  sim <- sim[geneFilter, ]
+
+  FQnorm <- function(counts){
+    rk <- apply(counts,2,rank,ties.method='min')
+    counts.sort <- apply(counts,2,sort)
+    refdist <- apply(counts.sort,1,median)
+    norm <- apply(rk,2,function(r){ refdist[r] })
+    rownames(norm) <- rownames(counts)
+    return(norm)
+  }
+  assays(sim)$norm <- FQnorm(assays(sim)$counts)
+
+  pca <- prcomp(t(log1p(assays(sim)$norm)), scale. = FALSE)
+  dm <- DiffusionMap(t(log1p(assays(sim)$norm)))
+
+  rd1 <- pca$x[,1:2]
+  rd2 <- cbind(DC1 = dm$DC1, DC2 = dm$DC2)
+  reducedDims(sim) <- SimpleList(PCA = rd1, DiffMap = rd2)
+
+  cl1 <- Mclust(rd1)$classification
+  cl2 <- kmeans(rd1, centers = 5)$cluster
+  colData(sim)$GMM <- cl1
+  colData(sim)$kmeans <- cl2
+  sim <- slingshot(sim, clusterLabels = 'GMM', reducedDim = 'PCA')
+  #colors <- colorRampPalette(brewer.pal(11,'Spectral')[-6])(100)
+  #plotcol <- colors[cut(sim$slingPseudotime_1, breaks=100)]
+  #plot(reducedDims(sim)$PCA, col = plotcol, pch=16, asp = 1)
+  #lines(SlingshotDataSet(sim), lwd=2, col='black')
+
+  pseudotime <- sim$slingPseudotime_1
+  pseudotime <- pseudotime / max(pseudotime)
+  names(pseudotime) <- rownames(sim@colData)
+  pseudotime
 }
