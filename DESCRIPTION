@@ -23,5 +23,5 @@ Suggests:
     princurve,
     rmarkdown
 VignetteBuilder: knitr
-Imports: Rcpp (>= 1.0.4), RcppEigen
+Imports: Rcpp (>= 1.0.4), RcppEigen, dplyr
 LinkingTo: Rcpp, RcppEigen

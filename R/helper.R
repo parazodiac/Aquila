@@ -154,11 +154,15 @@ NewPeaksSeparated <- function(macs.peak.folder) {
 }
 
 #' @export
-PlotATACnRNA <- function(atac, rna, pname, gname, cells) {
+PlotATACnRNA <- function(atac, rna, pname, gname, cells, pseudotime=NULL) {
   df <- data.frame(cbind(atac[pname, ], rna[gname, ]))
   pname <- gsub("-", "_", pname)
   colnames(df) <- c(pname, gname)
-  df["num"] <- seq(dim(df)[1])
+  if (!is.null(pseudotime)) {
+    df["num"] <- pseudotime
+  } else {
+    df["num"] <- seq(dim(df)[1])
+  }
   df <- df[cells, ]
 
   p1 <- ggplot(data=df, aes_string(x="num", y=pname)) + geom_point()  + geom_smooth(method="gam")
@@ -238,8 +242,76 @@ DiffPlot <- function(gammas.1, gammas.2, gname) {
   hm.df <- setNames(melt(diff), c('peaks', 'genes', 'diffs'))
   ggplot(hm.df, aes(genes, peaks)) +
     geom_tile(aes(fill=diffs), colour="white") +
-    scale_fill_gradient(low="red", high="green")
+    scale_fill_gradient(low="red", high="green") +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 }
+
+#' @export
+RelDiffPlot <- function(gammas.1, gammas.2, gname) {
+  idx <- which(unlist(lapply(gammas.1, function(gamma) { gname %in% colnames(gamma) })))
+  diff <- (gammas.1[[idx]] - gammas.2[[idx]]) / (gammas.1[[idx]] + gammas.2[[idx]])
+  hm.df <- setNames(melt(diff), c('peaks', 'genes', 'rel.diffs'))
+  ggplot(hm.df, aes(genes, peaks)) +
+    geom_tile(aes(fill=rel.diffs), colour="white") +
+    scale_fill_gradient(low="red", high="green") +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+}
+
+
+#' @export
+FCPlot <- function(gammas.1, gammas.2, gname) {
+  idx <- which(unlist(lapply(gammas.1, function(gamma) { gname %in% colnames(gamma) })))
+  fc <- (gammas.1[[idx]] + 1e-20) / (gammas.2[[idx]] + 1e-20)
+  hm.df <- setNames(melt(fc), c('peaks', 'genes', 'fold.change'))
+  ggplot(hm.df, aes(genes, peaks)) +
+    geom_tile(aes(fill=fold.change), colour="white") +
+    scale_fill_gradient(low="red", high="green") +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+}
+
+#' @export
+RegionPlot <- function(object, gammas, gname, pnames) {
+  subanno <- object@assays$macs.atac@annotation[object@assays$macs.atac@annotation$gene_name == gname, ]
+  links.gname <- paste0(as.character(subanno[1]@seqnames@values),
+                        "-", subanno[1]@ranges@start,
+                        "-", subanno[length(subanno)]@ranges@start + subanno[length(subanno)]@ranges@width
+  )
+
+  links.df <- DataFrame(Peak1 = pnames)
+  links.df["Peak2"] <-links.gname
+  links.df["coaccess"] <-as.numeric(gammas[[idx]][pnames, gname])
+
+  links <- ConnectionsToLinks(conns = links.df)
+  links$group <- links.gname
+  links <- links[links$score > 0.001, ]
+
+
+  offset <- 50000
+  toks <- strsplit(links.gname, "-")[[1]]
+  #region <- paste0(toks[[1]], "-", as.integer(toks[[2]])-offset, "-", as.integer(toks[[3]])+offset)
+  region <- paste0(toks[[1]], "-", 95085144, "-", 95741322)
+  Links(object[["macs.atac"]]) <- links
+  lp <- LinkPlot(object, region, min.cutoff = 0)
+  cp <- CoveragePlot(
+    object = object,
+    region = region,
+    links = F,
+    peaks = F,
+    assay = "macs.atac"
+  )
+  pp <- PeakPlot(
+    object = object,
+    peaks = object@assays$macs.atac@ranges,
+    region = region
+  )
+
+  CombineTracks(
+    plotlist = list(cp, pp, lp),
+    heights = c(10, 1, 3),
+    widths = c(10, 1)
+  )
+}
+
 
 #' @export
 GenerateGamma <- function(signac.object, chr.name, keep.cells,
@@ -311,6 +383,46 @@ GenerateGamma <- function(signac.object, chr.name, keep.cells,
   gammas
 }
 
+#' @export
+GetMoransI <- function(mat, disc.pseudotime) {
+  num.timepoints <- length(table(disc.pseudotime))
+  if (!is.data.frame(x = mat)) {
+    time.mat <- list()
+    for (i in seq(0, num.timepoints-1)) {
+      time.id <- i / 10
+
+      keep.cells <- names(disc.pseudotime[disc.pseudotime == time.id])
+      print(paste(time.id, length(keep.cells)))
+
+      time.mat[[i+1]] <- rowMeans(as.matrix(mat[, keep.cells]))
+    }
+
+    time.df <- data.frame(time.mat)
+  } else {
+    time.df <- mat
+  }
+
+  colnames(time.df) <- 1:num.timepoints
+  time.rowsum <- rowSums(time.df)
+  time.df <- time.df[time.rowsum > 0, ]
+
+  weights <- 1/as.matrix(dist(colnames(time.df)))^2
+  diag(x = weights) <- 0
+
+  summ.stats <- sapply(X = 1:nrow(x = time.df), FUN = function(i) {
+    ape::Moran.I(as.numeric(time.df[i, ]), weights, scaled = TRUE,
+                 na.rm = FALSE, alternative = "two.sided")
+  })
+
+  summ.df <- data.frame(
+    observed = unlist(x = summ.stats[1, ]),
+    p.value = unlist(x = summ.stats[4, ])
+  )
+  rownames(summ.df) <- rownames(time.df)
+
+  summ.df
+}
+
 ###########################
 # pseudotime
 ###########################
@@ -320,6 +432,7 @@ PrincipleTime <- function(cell.embeddings) {
   rna.princurve <- principal_curve(cell.embeddings)
   rna.pseudo.time <- rna.princurve$lambda
   rna.pseudo.time <- rna.pseudo.time / max(rna.pseudo.time)
+  rna.pseudo.time <-rna.pseudo.time[order(rna.pseudo.time)]
   rna.pseudo.time
 }
 
@@ -343,7 +456,7 @@ GetSlingshotPseudotime <- function(counts) {
   assays(sim)$norm <- FQnorm(assays(sim)$counts)
 
   pca <- prcomp(t(log1p(assays(sim)$norm)), scale. = FALSE)
-  dm <- DiffusionMap(t(log1p(assays(sim)$norm)))
+  dm <- DiffusionMap(t(log1p(assays(sim)$norm)), n_pcs = 50)
 
   rd1 <- pca$x[,1:2]
   rd2 <- cbind(DC1 = dm$DC1, DC2 = dm$DC2)
@@ -362,5 +475,6 @@ GetSlingshotPseudotime <- function(counts) {
   pseudotime <- sim$slingPseudotime_1
   pseudotime <- pseudotime / max(pseudotime)
   names(pseudotime) <- rownames(sim@colData)
+  pseudotime <- pseudotime[order(pseudotime)]
   pseudotime
 }

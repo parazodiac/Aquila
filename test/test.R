@@ -120,11 +120,76 @@ matched.motifs <- matchMotifs(pfm, features, genome = BSgenome.Hsapiens.UCSC.hg3
 
 
 
+#########################################
+## make gif
+#########################################
+vals <- lapply(seq(length(gammas)), function(g.idx) {
+  gamma <- data.frame(gammas[g.idx])
+  df <- melt(as.matrix(gamma))
+  colnames(df) <- c("peak", "gene", "mass")
+  com.idx <- round(sum(df$mass * seq(dim(df)[1])))
+
+  gamma[,] <- 0
+  gamma[as.character(df[com.idx, ]$peak), as.character(df[com.idx, ]$gene)] <- 1
+  p <- ggplot(melt(as.matrix(gamma)), aes(Var2, Var1)) +
+    geom_tile(aes(fill=value), colour="white")
+
+  ggsave(plot = p,
+         filename = paste0("files/", g.idx, "_file.png"),
+         device = "png")
+})
+
+
+imgs <- list.files("~/avi/tim/Circus/files", full.names = TRUE)
+img_list <- lapply(imgs, image_read)
+
+img_joined <- image_join(img_list)
+img_animated <- image_animate(img_joined, fps = 2)
+#img_animated
+
+image_write(image = img_animated,
+            path = "files/tx-sales.gif")
 
 
 
+#########################################
+## Gamma activation
+#########################################
+all_vals <- lapply(seq(dim(roi.comb)[1]), function(row.idx){
+  print(row.idx)
+  pname <- roi.comb[row.idx, ]$Var1
+  gname <- roi.comb[row.idx, ]$Var2
 
+  gammas <- lapply(seq(length(table(disc.pseudotime))), function(cell.idx) {
+    cat("\r", cell.idx)
+    cell.name <- names(disc.pseudotime[disc.pseudotime == ((cell.idx-1) / 10)])
+    GenerateGamma(signac.object = pbmc, chr.name = chr.name, keep.cells = cell.name,
+                  overlaps = overlaps, gene.name = gname, verbose=F)
+  })
 
+  vals <- unlist(lapply(gammas, function(gamma) {
+    data.frame(gamma)[pname, gname]
+  }))
+  vals <- (vals - min(vals))
+  vals <- vals / max(vals)
+  vals
+})
+
+#plot(vals, main=gname, ylab="gamma", xlab="pseudotime")
+
+df <- data.frame(t(data.frame(all_vals)))
+colnames(df) <- paste0("t",seq(dim(df)[2]))
+rownames(df) <- paste(roi.comb$Var1, roi.comb$Var2)
+
+order <- c()
+for (name in colnames(df)) {
+  order <- c(order, rownames(df[df[, name] == 1.0, ]))
+}
+length(order)
+
+hmap <- as.matrix(df[order, ])
+heatmap(hmap, Rowv = NA, Colv = NA, xlab = "pseudotime", main = "gamma_activation")
+df
 
 
 
