@@ -1,5 +1,5 @@
-Package: Circus
-Title: A wrapper around various Seurat Signac functions.
+Package: Aquila
+Title: Process the Indus combinatorial data.
 Version: 0.1.0
 Authors@R: 
     person(given = "Avi",
@@ -14,14 +14,6 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.1
 Suggests:
     devtools,
-    Seurat (>= 3.2.0),
-    EnsDb.Hsapiens.v86,
-    GenomeInfoDb,
-    ggplot2,
-    patchwork,
-    knitr,
-    princurve,
-    rmarkdown
 VignetteBuilder: knitr
 Imports: Rcpp (>= 1.0.4), RcppEigen, dplyr
 LinkingTo: Rcpp, RcppEigen
