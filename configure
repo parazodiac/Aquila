@@ -1,0 +1,18 @@
+#!/bin/sh
+export PATH="$PATH:$HOME/.cargo/bin"
+if [ $(command -v cargo) ]; then
+  cargo --version
+elif [ `uname` = "Darwin" ]; then
+  curl "https://autobrew.github.io/scripts/rustc" -sSf | sh
+else
+  echo "--------------------------------------------------------------------"
+  echo "Cargo not found on PATH. Please install cargo / rustc:"
+  echo ""
+  echo " - brew install rustc (MacOS)"
+  echo " - sudo apt-get install cargo (Debian/Ubuntu)"
+  echo " - sudo yum install cargo (Fedora/CentOS)"
+  echo "--------------------------------------------------------------------"
+  echo ""
+  exit 1
+fi
+exit 0

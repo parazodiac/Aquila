@@ -1,4 +1,1 @@
-useDynLib(Aquila)
-import(RcppEigen)
-importFrom(Rcpp, evalCpp)
-export("Rcpp.fake.fun")
+useDynLib(aquila)

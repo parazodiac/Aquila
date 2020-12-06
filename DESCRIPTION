@@ -1,4 +1,4 @@
-Package: Aquila
+Package: aquila
 Title: Process the Indus combinatorial data.
 Version: 0.1.0
 Authors@R: 
@@ -15,5 +15,5 @@ RoxygenNote: 7.1.1
 Suggests:
     devtools,
 VignetteBuilder: knitr
-Imports: Rcpp (>= 1.0.4), RcppEigen, dplyr
+Imports: Rcpp (>= 1.0.4), RcppEigen
 LinkingTo: Rcpp, RcppEigen
