@@ -6,5 +6,6 @@ authors = ["Avi Srivastava <avi.srivastava@nyu.edu>"]
 [lib]
 crate-type = ["staticlib"]
 
-[dependencies]
-libc = "*"
+[dependencies.indus]
+git = "https://github.com/parazodiac/Indus"
+branch = "main"

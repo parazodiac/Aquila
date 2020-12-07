@@ -15,5 +15,5 @@ RoxygenNote: 7.1.1
 Suggests:
     devtools,
 VignetteBuilder: knitr
-Imports: Rcpp (>= 1.0.4), RcppEigen
+Imports: Rcpp (>= 1.0.4), RcppEigen, Matrix
 LinkingTo: Rcpp, RcppEigen
