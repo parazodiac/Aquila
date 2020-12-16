@@ -19,23 +19,23 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// Oxidized_GearyC
-bool Oxidized_GearyC(SEXP weight_folder_path, SEXP values_folder_path, SEXP out_file_path);
-RcppExport SEXP _aquila_Oxidized_GearyC(SEXP weight_folder_pathSEXP, SEXP values_folder_pathSEXP, SEXP out_file_pathSEXP) {
+// Oxidized_GearysC
+bool Oxidized_GearysC(SEXP weight_folder_path, SEXP values_folder_path, SEXP out_file_path);
+RcppExport SEXP _aquila_Oxidized_GearysC(SEXP weight_folder_pathSEXP, SEXP values_folder_pathSEXP, SEXP out_file_pathSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type weight_folder_path(weight_folder_pathSEXP);
     Rcpp::traits::input_parameter< SEXP >::type values_folder_path(values_folder_pathSEXP);
     Rcpp::traits::input_parameter< SEXP >::type out_file_path(out_file_pathSEXP);
-    rcpp_result_gen = Rcpp::wrap(Oxidized_GearyC(weight_folder_path, values_folder_path, out_file_path));
+    rcpp_result_gen = Rcpp::wrap(Oxidized_GearysC(weight_folder_path, values_folder_path, out_file_path));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
     {"_aquila_Oxidized_MoransI", (DL_FUNC) &_aquila_Oxidized_MoransI, 3},
-    {"_aquila_Oxidized_GearyC", (DL_FUNC) &_aquila_Oxidized_GearyC, 3},
+    {"_aquila_Oxidized_GearysC", (DL_FUNC) &_aquila_Oxidized_GearysC, 3},
     {NULL, NULL, 0}
 };
 

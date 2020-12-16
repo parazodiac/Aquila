@@ -37,7 +37,8 @@ pub extern fn morans_i(
     true
 }
 
-pub extern fn geary_c(
+#[no_mangle]
+pub extern fn gearys_c(
     weight_file_char: *const c_char,
     values_file_char: *const c_char,
     out_path: *const c_char,

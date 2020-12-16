@@ -5,7 +5,7 @@ Oxidized_MoransI <- function(weight_folder_path, values_folder_path, out_file_pa
     .Call('_aquila_Oxidized_MoransI', PACKAGE = 'aquila', weight_folder_path, values_folder_path, out_file_path)
 }
 
-Oxidized_GearyC <- function(weight_folder_path, values_folder_path, out_file_path) {
-    .Call('_aquila_Oxidized_GearyC', PACKAGE = 'aquila', weight_folder_path, values_folder_path, out_file_path)
+Oxidized_GearysC <- function(weight_folder_path, values_folder_path, out_file_path) {
+    .Call('_aquila_Oxidized_GearysC', PACKAGE = 'aquila', weight_folder_path, values_folder_path, out_file_path)
 }
 

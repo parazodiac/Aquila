@@ -7,7 +7,7 @@
 
 extern "C" {
 	bool morans_i(const char* weight_folder_path, const char* values_folder_path, const char* out_file_path);
-	bool geary_c(const char* weight_folder_path, const char* values_folder_path, const char* out_file_path);
+	bool gearys_c(const char* weight_folder_path, const char* values_folder_path, const char* out_file_path);
 }
 
 // [[Rcpp::export]]
@@ -18,10 +18,9 @@ bool Oxidized_MoransI(SEXP weight_folder_path, SEXP values_folder_path, SEXP out
   );
 }
 
-
 // [[Rcpp::export]]
-bool Oxidized_GearyC(SEXP weight_folder_path, SEXP values_folder_path, SEXP out_file_path){
-  return morans_i(CHAR(STRING_ELT(weight_folder_path, 0)), 
+bool Oxidized_GearysC(SEXP weight_folder_path, SEXP values_folder_path, SEXP out_file_path){
+  return gearys_c(CHAR(STRING_ELT(weight_folder_path, 0)), 
                   CHAR(STRING_ELT(values_folder_path, 0)),
                   CHAR(STRING_ELT(out_file_path, 0))
   );
