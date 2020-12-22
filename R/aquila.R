@@ -1,14 +1,18 @@
 #' @useDynLib aquila
 #' @export
 MoransI <- function(values, weights, temp_dir) {
-  print("Writing values")
   values_path <- file.path(temp_dir, "values")
   dir.create(values_path, showWarnings = T)
-  WriteCRMatrix(values_path, values)
   
-  print("Writing weights")
   weights_path <- file.path(temp_dir, "weights")
   dir.create(weights_path, showWarnings = T)
+  
+  print(paste0("Writing values at: ", values_path))
+  values <- Matrix(values, sparse = TRUE)
+  WriteCRMatrix(values_path, values)
+  
+  print(paste0("Writing weights at: ", weights_path))
+  weights <- Matrix(weights, sparse = TRUE)
   WriteCRMatrix(weights_path, weights)
   
   print("Calculating MoransI")
