@@ -10,13 +10,15 @@ MoransI <- function(values, weights, temp_dir) {
   print(paste0("Writing values at: ", values_path))
   values <- Matrix(values, sparse = TRUE)
   WriteCRMatrix(values_path, values)
+  print("Done writing values")
   
   print(paste0("Writing weights at: ", weights_path))
   weights <- Matrix(weights, sparse = TRUE)
   WriteCRMatrix(weights_path, weights)
+  print("Done writing weights")
   
   print("Calculating MoransI")
-  out_path <- paste0(temp_dir, "/", "moransi.is")
+  out_path <- file.path(temp_dir, "moransi.is")
   Oxidized_MoransI(weights_path, values_path, out_path)
   
   unlink(values_path, recursive=TRUE)
