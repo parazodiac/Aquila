@@ -1,10 +1,10 @@
 #' @useDynLib aquila
 #' @export
 MoransI <- function(values, weights, temp_dir) {
-  values_path <- file.path(temp_dir, "values")
+  values_path <- normalizePath(file.path(temp_dir, "values"))
   dir.create(values_path, showWarnings = T)
   
-  weights_path <- file.path(temp_dir, "weights")
+  weights_path <- normalizePath(file.path(temp_dir, "weights"))
   dir.create(weights_path, showWarnings = T)
   
   print(paste0("Writing values at: ", values_path))
@@ -17,8 +17,8 @@ MoransI <- function(values, weights, temp_dir) {
   WriteCRMatrix(weights_path, weights)
   print("Done writing weights")
   
-  print("Calculating MoransI")
-  out_path <- file.path(temp_dir, "moransi.is")
+  out_path <- normalizePath(file.path(temp_dir, "moransi.is"))
+  print(paste0("Calculating MoransI and saving at: ", out_path))
   Oxidized_MoransI(weights_path, values_path, out_path)
   
   unlink(values_path, recursive=TRUE)
