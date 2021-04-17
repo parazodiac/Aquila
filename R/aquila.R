@@ -8,12 +8,12 @@ MoransI <- function(values, weights, temp_dir) {
   dir.create(weights_path, showWarnings = T)
   
   print(paste0("Writing values at: ", values_path))
-  values <- Matrix(values, sparse = TRUE)
+  values <- as(values, "sparseMatrix")
   WriteCRMatrix(values_path, values)
   print("Done writing values")
   
   print(paste0("Writing weights at: ", weights_path))
-  weights <- Matrix(weights, sparse = TRUE)
+  weights <- as(weights, "sparseMatrix")
   WriteCRMatrix(weights_path, weights)
   print("Done writing weights")
   
