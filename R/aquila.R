@@ -61,7 +61,7 @@ NNHelperRust <- function(mat, temp_dir, threads) {
   
   list(
     "indices" = mat[, seq(21, 40)] + 1,
-    "distances" = mat[, seq(20)]  + 1
+    "distances" = mat[, seq(20)] 
   )
 }
 
