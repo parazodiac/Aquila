@@ -45,7 +45,7 @@ NNHelperRust <- function(mat, temp_dir, threads) {
   dir.create(mat_dir_path, showWarnings = T)
   
   print(paste0("Writing matrix at: ", mat_dir_path))
-  mat_path <- paste0(mat_path, "/mat.tsv")
+  mat_path <- paste0(mat_dir_path, "/mat.tsv")
   write.table(mat, mat_path, sep = ",", quote = F, row.names = F, col.names = F)
   print("Done writing values")
   
