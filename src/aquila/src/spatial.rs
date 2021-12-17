@@ -1,6 +1,6 @@
 use std::ffi::CStr;
 use std::fs::File;
-use std::os::raw::{c_char, c_int};
+use std::os::raw::c_char;
 
 use std::io::BufWriter;
 use std::path::Path;
@@ -10,7 +10,7 @@ pub extern "C" fn morans_i(
     weight_file_char: *const c_char,
     values_file_char: *const c_char,
     out_path: *const c_char,
-    num_threads: c_int,
+    num_threads: *const c_char,
 ) -> bool {
     let weight_file_str = unsafe {
         assert!(!weight_file_char.is_null());
@@ -28,6 +28,12 @@ pub extern "C" fn morans_i(
     };
     let out_file =
         BufWriter::new(File::create(out_file_str.to_str().unwrap()).expect("can't open file"));
+
+    let num_threads_str = unsafe {
+        assert!(!num_threads.is_null());
+        CStr::from_ptr(num_threads)
+    };
+    let num_threads: usize = num_threads_str.to_str().unwrap().parse::<usize>().unwrap();
 
     println!("Using {} threads", num_threads);
     indus::spatial::generate_stats(
@@ -47,7 +53,7 @@ pub extern "C" fn gearys_c(
     weight_file_char: *const c_char,
     values_file_char: *const c_char,
     out_path: *const c_char,
-    num_threads: c_int,
+    num_threads: *const c_char,
 ) -> bool {
     let weight_file_str = unsafe {
         assert!(!weight_file_char.is_null());
@@ -65,6 +71,12 @@ pub extern "C" fn gearys_c(
     };
     let out_file =
         BufWriter::new(File::create(out_file_str.to_str().unwrap()).expect("can't open file"));
+
+    let num_threads_str = unsafe {
+        assert!(!num_threads.is_null());
+        CStr::from_ptr(num_threads)
+    };
+    let num_threads: usize = num_threads_str.to_str().unwrap().parse::<usize>().unwrap();
 
     println!("Using {} threads", num_threads);
     indus::spatial::generate_stats(
