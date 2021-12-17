@@ -9,3 +9,4 @@ crate-type = ["staticlib"]
 [dependencies.indus]
 git = "https://github.com/parazodiac/Indus"
 branch = "main"
+version = "0.1.1"
