@@ -60,7 +60,7 @@ NNHelperRust <- function(mat, temp_dir, threads) {
   unlink(mat_dir_path, recursive=TRUE)
   
   list(
-    "indices" = mat[, seq(20, 40)],
+    "indices" = mat[, seq(21, 40)],
     "distances" = mat[, seq(20)]
   )
 }
